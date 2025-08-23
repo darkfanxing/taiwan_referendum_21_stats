@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <title>公投 21 案 - 資料統計</title>
+    <style>
+        .title {
+            height: 60px;
+            line-height: 60px;
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .sub-title {
+            height: 40px;
+            line-height: 40px;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        iframe {
+            height: calc(100% - 40px);
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body class="h-screen">
+    <div class="title text-center">公投 21 案資料統計（資料來源：中央選舉委員會）</div>
+    <div class="grid grid-flow-row grid-cols-3 gap-4" style="height: calc(100vh - 100px)">
+        <div class="row-span-2">
+            <div class="text-center sub-title">總投票率</div>
+            <iframe src="https://plotdb.io/v/chart/37762" allowfullscreen="true" frameborder="0"></iframe>
+        </div>
+        <div class="row-span-2">
+            <div class="text-center sub-title">同意率（基於投票人數）</div>
+            <iframe src="https://plotdb.io/v/chart/37763" allowfullscreen="true" frameborder="0"></iframe>
+        </div>
+        <div class="row-span-2">
+            <div class="text-center sub-title">不同意率（基於投票人數）</div>
+            <iframe src="https://plotdb.io/v/chart/37764" allowfullscreen="true" frameborder="0"></iframe>
+        </div>
+    </div>
+</body>
+
+</html>
