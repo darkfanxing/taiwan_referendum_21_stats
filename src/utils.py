@@ -74,7 +74,7 @@ def get_data() -> pd.DataFrame:
     if os.path.exists("data/overall.feather"):
         data = pd.read_feather("data/overall.feather")
     else:
-        data_config = __load_data_config("assets/tree-compiled.min.json")
+        data_config = __load_data_config("src/assets/tree-compiled.min.json")
         df_links = __get_data_links(data_config)
         __request_data(df_links, is_force_request=False)
 
