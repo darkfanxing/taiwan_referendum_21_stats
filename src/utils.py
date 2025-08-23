@@ -125,37 +125,44 @@ def get_data() -> pd.DataFrame:
 def save_statistics(data: pd.DataFrame) -> pd.DataFrame:
     folder_name = "data/stats"
     data = data.copy()
-    data = data[data["type"] == "district"]
     data.rename(columns={"city": "縣市", "district": "鄉鎮"}, inplace=True)
 
-    def __voted(data: pd.DataFrame) -> None:
+    def __voted(data: pd.DataFrame, type_: str, cols: list) -> None:
         tmp_data = data.copy()
         tmp_data["投票率"] = round(tmp_data["voted"] / tmp_data["eligible"] * 100, 1)
-        tmp_data[["縣市", "鄉鎮", "投票率"]].to_csv(
-            f"{folder_name}/voting_rates.csv", index=False
+        tmp_data[cols + ["投票率"]].to_csv(
+            f"{folder_name}/{type_}/voting_rates.csv", index=False
         )
 
-    def __voted_agree(data: pd.DataFrame) -> None:
+    def __voted_agree(data: pd.DataFrame, type_: str, cols: list) -> None:
         tmp_data = data.copy()
         tmp_data["同意率（基於投票人數）"] = round(
             tmp_data["voted_agree"] / tmp_data["voted"] * 100, 1
         )
-        tmp_data[["縣市", "鄉鎮", "同意率（基於投票人數）"]].to_csv(
-            f"{folder_name}/voting_agree_rates.csv", index=False
+        tmp_data[cols + ["同意率（基於投票人數）"]].to_csv(
+            f"{folder_name}/{type_}/voting_agree_rates.csv", index=False
         )
 
-    def __voted_disagree(data: pd.DataFrame) -> None:
+    def __voted_disagree(data: pd.DataFrame, type_: str, cols: list) -> None:
         tmp_data = data.copy()
         tmp_data["不同意率（基於投票人數）"] = round(
             tmp_data["voted_disagree"] / tmp_data["voted"] * 100, 1
         )
-        tmp_data[["縣市", "鄉鎮", "不同意率（基於投票人數）"]].to_csv(
-            f"{folder_name}/voting_disagree_rates.csv", index=False
+        tmp_data[cols + ["不同意率（基於投票人數）"]].to_csv(
+            f"{folder_name}/{type_}/voting_disagree_rates.csv", index=False
         )
 
     if not os.path.exists(folder_name):
         os.makedirs(folder_name)
 
-    __voted(data)
-    __voted_agree(data)
-    __voted_disagree(data)
+    for type_ in ["district", "city"]:
+        tmp_data = data.copy()
+        tmp_data = tmp_data[tmp_data["type"] == type_]
+        cols = ["縣市", "鄉鎮"] if type_ == "district" else ["縣市"]
+
+        if not os.path.exists(f"{folder_name}/{type_}"):
+            os.makedirs(f"{folder_name}/{type_}")
+
+        __voted(tmp_data, type_, cols)
+        __voted_agree(tmp_data, type_, cols)
+        __voted_disagree(tmp_data, type_, cols)
