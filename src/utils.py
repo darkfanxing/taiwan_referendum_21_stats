@@ -239,12 +239,27 @@ def get_legislators_data() -> pd.DataFrame:
     return data
 
 def save_legislators_statistics(data: pd.DataFrame) -> None:
-    data = data[["縣市", "行政區", "同意票數", "不同意票數", "有效票數", "無效票數", "投票人數", "已領未投票數", "發出票數", "用餘票數", "投票人總數"]]
-    data = data.groupby(["縣市", "行政區"]).sum()
-    data.reset_index(inplace=True)
+    tmp_data = data.copy()
+    tmp_data = tmp_data[["縣市", "行政區", "同意票數", "不同意票數", "有效票數", "無效票數", "投票人數", "已領未投票數", "發出票數", "用餘票數", "投票人總數"]]
+    tmp_data = tmp_data.groupby(["縣市", "行政區"]).sum()
+    tmp_data.reset_index(inplace=True)
 
-    data["投票率"] = round(data["投票人數"] / data["投票人總數"] * 100, 1)
-    data["不同意率（基於投票人數）"] = round(data["不同意票數"] / data["投票人數"] * 100, 1)
-    data["同意率（基於投票人數）"] = round(data["同意票數"] / data["投票人數"] * 100, 1)
-    data = data[["縣市", "行政區", "投票率", "同意率（基於投票人數）", "不同意率（基於投票人數）"]]
-    data.to_csv("data/stats/legislators_stats.csv", index=False)
+    tmp_data["投票率"] = round(tmp_data["投票人數"] / tmp_data["投票人總數"] * 100, 1)
+    tmp_data["不同意率（基於投票人數）"] = round(tmp_data["不同意票數"] / tmp_data["投票人數"] * 100, 1)
+    tmp_data["同意率（基於投票人數）"] = round(tmp_data["同意票數"] / tmp_data["投票人數"] * 100, 1)
+    tmp_data = tmp_data[["縣市", "行政區", "投票率", "同意率（基於投票人數）", "不同意率（基於投票人數）"]]
+    tmp_data.to_csv("data/stats/legislators_stats.csv", index=False)
+
+    overall = pd.read_csv("data/overall.csv")
+    tmp_data = tmp_data[["縣市", "行政區"]]
+
+    overall.rename(columns={"city": "縣市", "district": "行政區"}, inplace=True)
+    tmp_data = pd.merge(overall, tmp_data, on=["縣市", "行政區"], suffixes=("_overall", "_legislators"))
+
+
+    tmp_data["投票率"] = round(tmp_data["voted"] / tmp_data["eligible"] * 100, 1)
+    tmp_data["同意率（基於投票人數）"] = round(tmp_data["voted_agree"] / tmp_data["voted"] * 100, 1)
+    tmp_data["不同意率（基於投票人數）"] = round(tmp_data["voted_disagree"] / tmp_data["voted"] * 100, 1)
+
+    tmp_data = tmp_data[["縣市", "行政區", "投票率", "同意率（基於投票人數）", "不同意率（基於投票人數）"]]
+    tmp_data.to_csv("data/stats/legislators_stats_based_on_referendum.csv", index=False)
