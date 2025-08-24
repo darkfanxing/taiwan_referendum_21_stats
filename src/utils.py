@@ -10,12 +10,12 @@ from loguru import logger
 from typing import Dict
 
 
-def __load_data_config(file_path: str) -> Dict:
+def __load_referendum_data_config(file_path: str) -> Dict:
     with open(file_path, "r", encoding="utf-8") as file:
         return json.load(file)
 
 
-def __get_data_links(data_config: Dict) -> pd.DataFrame:
+def __get_referendum_data_links(data_config: Dict) -> pd.DataFrame:
     data = []
     for city in data_config["c00"]["next"]:
         city_serial = data_config[city]["serial"]["c"]
@@ -43,7 +43,7 @@ def __get_data_links(data_config: Dict) -> pd.DataFrame:
     return data
 
 
-def __request_data(
+def __request_referendum_data(
     df_links: pd.DataFrame,
     is_force_request: bool = False,
     request_interval: float = 0.2,
@@ -70,13 +70,13 @@ def __request_data(
         time.sleep(request_interval)
 
 
-def get_data() -> pd.DataFrame:
+def get_referendum_data() -> pd.DataFrame:
     if os.path.exists("data/overall.feather"):
         data = pd.read_feather("data/overall.feather")
     else:
-        data_config = __load_data_config("src/assets/tree-compiled.min.json")
-        df_links = __get_data_links(data_config)
-        __request_data(df_links, is_force_request=False)
+        data_config = __load_referendum_data_config("src/assets/tree-compiled.min.json")
+        df_links = __get_referendum_data_links(data_config)
+        __request_referendum_data(df_links, is_force_request=False)
 
         data = []
         for _, row in df_links.iterrows():
@@ -122,7 +122,7 @@ def get_data() -> pd.DataFrame:
     return data
 
 
-def save_statistics(data: pd.DataFrame) -> pd.DataFrame:
+def save_referendum_statistics(data: pd.DataFrame) -> pd.DataFrame:
     folder_name = "data/stats"
     data = data.copy()
     data.rename(columns={"city": "縣市", "district": "鄉鎮"}, inplace=True)
@@ -166,3 +166,85 @@ def save_statistics(data: pd.DataFrame) -> pd.DataFrame:
         __voted(tmp_data, type_, cols)
         __voted_agree(tmp_data, type_, cols)
         __voted_disagree(tmp_data, type_, cols)
+
+
+def __download_legislators_data() -> None:
+    with open("src/assets/RCL_L0.json", "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    for item in data[0]["time_items"]:
+        for theme in item["theme_items"]:
+            url = f"https://db.cec.gov.tw/static/elections/data/attachments/{theme['type_id']}/{theme['subject_id']}/{theme['theme_id']}/list.json"
+            response = requests.get(url)
+            if response.status_code == 200:
+                stats_data = response.json()
+                for stat_data in stats_data:
+                    if "表5" in stat_data["file_name"]:
+                        url = f"https://db.cec.gov.tw/static/{stat_data['file_path']}"
+                        response = requests.get(url)
+                        if response.status_code == 200:
+                            if os.path.exists("data/legislators") is False:
+                                os.makedirs("data/legislators")
+                            with open(
+                                f"data/legislators/{stat_data['file_name']}", "wb"
+                            ) as f:
+                                f.write(response.content)
+
+                            logger.info(f"Downloaded {stat_data['file_name']}")
+
+
+def get_legislators_data() -> pd.DataFrame:
+    if os.path.exists("data/depose-legislators.feather"):
+        data = pd.read_feather("data/depose-legislators.feather")
+    else:
+        __download_legislators_data()
+
+        data = []
+        for filename in os.listdir("data/legislators"):
+            file_path = f"data/legislators/{filename}"
+
+            tmp_data = pd.read_excel(file_path)
+            tmp_data.columns = tmp_data.iloc[0]
+            tmp_data = tmp_data[1:]
+
+            tmp_data["行政區別"] = tmp_data["行政區別"].str.strip()
+            tmp_data["行政區別"] = tmp_data["行政區別"].fillna(method="ffill")
+
+            tmp_data.columns = [
+                "行政區",
+                "村里",
+                "投開票所別",
+                "同意票數",
+                "不同意票數",
+                "有效票數",
+                "無效票數",
+                "投票人數",
+                "已領未投票數",
+                "發出票數",
+                "用餘票數",
+                "投票人總數",
+                "投票率",
+            ]
+
+            tmp_data["被罷免人"] = file_path.split(")")[1].split("罷免案")[0]
+            tmp_data["縣市"] = file_path.split("(")[1][:3]
+
+            tmp_data = tmp_data.dropna()
+            data.append(tmp_data)
+
+        data = pd.concat(data, ignore_index=True)
+        data.to_feather("data/depose-legislators.feather")
+        data.to_csv("data/depose-legislators.csv", index=False)
+
+    return data
+
+def save_legislators_statistics(data: pd.DataFrame) -> None:
+    data = data[["縣市", "行政區", "同意票數", "不同意票數", "有效票數", "無效票數", "投票人數", "已領未投票數", "發出票數", "用餘票數", "投票人總數"]]
+    data = data.groupby(["縣市", "行政區"]).sum()
+    data.reset_index(inplace=True)
+
+    data["投票率"] = round(data["投票人數"] / data["投票人總數"] * 100, 1)
+    data["不同意率（基於投票人數）"] = round(data["不同意票數"] / data["投票人數"] * 100, 1)
+    data["同意率（基於投票人數）"] = round(data["同意票數"] / data["投票人數"] * 100, 1)
+    data = data[["縣市", "行政區", "投票率", "同意率（基於投票人數）", "不同意率（基於投票人數）"]]
+    data.to_csv("data/stats/legislators_stats.csv", index=False)
